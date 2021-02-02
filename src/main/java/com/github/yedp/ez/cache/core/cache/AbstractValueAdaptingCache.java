@@ -18,9 +18,12 @@ package com.github.yedp.ez.cache.core.cache;
 
 import com.alibaba.fastjson.JSON;
 
+import com.github.yedp.ez.cache.core.stats.CacheStats;
+import com.github.yedp.ez.cache.core.stats.StatsEnum;
 import com.github.yedp.ez.cache.core.support.NullValue;
 import org.springframework.util.Assert;
 
+import java.util.Objects;
 import java.util.concurrent.Callable;
 
 
@@ -30,7 +33,7 @@ import java.util.concurrent.Callable;
  * @comment Cache 接口的抽象实现类，对公共的方法做了一写实现，如是否允许存NULL值
  * <p>如果允许为NULL值，则需要在内部将NULL替换成{@link NullValue#INSTANCE} 对象
  **/
-public abstract class AbstractValueAdaptingCache implements Cache {
+public abstract class AbstractValueAdaptingCache implements ICache, IStats {
 
     /**
      * 缓存名称
@@ -40,18 +43,21 @@ public abstract class AbstractValueAdaptingCache implements Cache {
     /**
      * 是否开启统计功能
      */
-    private boolean stats;
-
+    private boolean statsSwitch;
+    /**
+     * 缓存统计类
+     */
+    private CacheStats cacheStats = new CacheStats();
 
     /**
      * 通过构造方法设置缓存配置
      *
-     * @param stats 是否开启监控统计
-     * @param name  缓存名称
+     * @param statsSwitch 是否开启监控统计
+     * @param name        缓存名称
      */
-    protected AbstractValueAdaptingCache(boolean stats, String name) {
+    protected AbstractValueAdaptingCache(boolean statsSwitch, String name) {
         Assert.notNull(name, "缓存名称不能为NULL");
-        this.stats = stats;
+        this.setStatsSwitch(statsSwitch);
         this.name = name;
     }
 
@@ -113,13 +119,53 @@ public abstract class AbstractValueAdaptingCache implements Cache {
         }
     }
 
+    protected void statsAddByRs(Object object) {
+        if (object == null || object instanceof NullValue) {
+            statsAdd(StatsEnum.MISS);
+        }
+        statsAdd(StatsEnum.HIT);
+    }
+
+    protected void statsAdd(StatsEnum statsEnum) {
+        if (!this.getStatusSwitch()) {
+            return;
+        }
+        cacheStats.addRequestCount(1);
+        if (StatsEnum.HIT.equals(statsEnum)) {
+            cacheStats.addHitCount(1);
+        } else if (StatsEnum.LOAD.equals(statsEnum)) {
+            cacheStats.addLoadCount(1);
+        }
+    }
+
+    /**
+     * 获取统计信息
+     *
+     * @return CacheStats
+     */
+    @Override
+    public CacheStats getCacheStats() {
+        return cacheStats;
+    }
+
+    @Override
+    public void setStatsSwitch(boolean status) {
+        if (this.statsSwitch && status) {
+            return;
+        }
+        this.statsSwitch = status;
+        if (status) {
+            cacheStats.clear();
+        }
+    }
+
     /**
      * 获取是否开启统计
      *
      * @return true：开启统计，false：关闭统计
      */
-    public boolean isStats() {
-        return stats;
+    @Override
+    public boolean getStatusSwitch() {
+        return statsSwitch;
     }
-
 }

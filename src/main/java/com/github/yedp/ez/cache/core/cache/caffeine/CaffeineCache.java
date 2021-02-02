@@ -6,7 +6,8 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.github.yedp.ez.cache.core.cache.AbstractValueAdaptingCache;
-import com.github.yedp.ez.cache.core.setting.FirstCacheSetting;
+import com.github.yedp.ez.cache.core.setting.CaffeineCacheSetting;
+import com.github.yedp.ez.cache.core.stats.StatsEnum;
 import com.github.yedp.ez.cache.core.support.ExpireMode;
 import com.github.yedp.ez.cache.core.support.NullValue;
 import org.slf4j.Logger;
@@ -15,10 +16,10 @@ import org.slf4j.LoggerFactory;
 import java.util.concurrent.Callable;
 
 /**
- * 基于Caffeine实现的一级缓存
- *
- * @author yuhao.wang
- */
+ * @author yedp
+ * @date 2021-02-01 09:07:35
+ * @comment 基于Caffeine实现的缓存
+ **/
 public class CaffeineCache extends AbstractValueAdaptingCache {
     protected static final Logger logger = LoggerFactory.getLogger(CaffeineCache.class);
 
@@ -28,21 +29,26 @@ public class CaffeineCache extends AbstractValueAdaptingCache {
     private final Cache<Object, Object> cache;
 
     /**
-     * 使用name和{@link FirstCacheSetting}创建一个 {@link CaffeineCache} 实例
+     * 使用name和{@link CaffeineCacheSetting}创建一个 {@link CaffeineCache} 实例
      *
-     * @param name              缓存名称
-     * @param firstCacheSetting 一级缓存配置 {@link FirstCacheSetting}
-     * @param stats             是否开启统计模式
+     * @param name                 缓存名称
+     * @param caffeineCacheSetting 一级缓存配置 {@link CaffeineCacheSetting}
+     * @param stats                是否开启统计模式
      */
-    public CaffeineCache(String name, FirstCacheSetting firstCacheSetting, boolean stats) {
-
+    public CaffeineCache(String name, CaffeineCacheSetting caffeineCacheSetting, boolean stats) {
         super(stats, name);
-        this.cache = getCache(firstCacheSetting);
+        this.cache = getCache(caffeineCacheSetting);
     }
 
     @Override
     public Cache<Object, Object> getNativeCache() {
         return this.cache;
+    }
+
+
+    @Override
+    public String get(String key) {
+        return this.get(key, String.class);
     }
 
     @Override
@@ -51,15 +57,15 @@ public class CaffeineCache extends AbstractValueAdaptingCache {
             logger.debug("caffeine缓存 key={} 获取缓存", JSON.toJSONString(key));
         }
 
-        if (isStats()) {
-//            getCacheStats().addCacheRequestCount(1);
-        }
-
+        T result = null;
         if (this.cache instanceof LoadingCache) {
-            return (T) ((LoadingCache<Object, Object>) this.cache).get(key);
+            result = (T) ((LoadingCache<Object, Object>) this.cache).get(key);
         }
-        return (T) cache.getIfPresent(key);
+        result = (T) cache.getIfPresent(key);
+        super.statsAddByRs(result);
+        return result;
     }
+
 
     @Override
     @SuppressWarnings("unchecked")
@@ -68,18 +74,16 @@ public class CaffeineCache extends AbstractValueAdaptingCache {
             logger.debug("caffeine缓存 key={} 获取缓存， 如果没有命中就走库加载缓存", JSON.toJSONString(key));
         }
 
-        if (isStats()) {
-//            getCacheStats().addCacheRequestCount(1);
-        }
-
         Object result = this.cache.get(key, k -> loaderValue(key, valueLoader));
         // 如果不允许存NULL值 直接删除NULL值缓存
         boolean isEvict = !isAllowNullValues() && (result == null || result instanceof NullValue);
         if (isEvict) {
             evict(key);
         }
+        super.statsAddByRs(result);
         return (T) fromStoreValue(result);
     }
+
 
     @Override
     public void put(String key, Object value) {
@@ -101,6 +105,11 @@ public class CaffeineCache extends AbstractValueAdaptingCache {
             return;
         }
         logger.debug("缓存值为NULL并且不允许存NULL值，不缓存数据");
+    }
+
+    @Override
+    public String putIfAbsent(String key, String value) {
+        return this.putIfAbsent(key, value, String.class);
     }
 
     @Override
@@ -135,19 +144,12 @@ public class CaffeineCache extends AbstractValueAdaptingCache {
      */
     private <T> Object loaderValue(Object key, Callable<T> valueLoader) {
         long start = System.currentTimeMillis();
-        if (isStats()) {
-//            getCacheStats().addCachedMethodRequestCount(1);
-        }
-
         try {
             T t = valueLoader.call();
             if (logger.isDebugEnabled()) {
                 logger.debug("caffeine缓存 key={} 从库加载缓存", JSON.toJSONString(key), JSON.toJSONString(t));
             }
-
-            if (isStats()) {
-//                getCacheStats().addCachedMethodRequestTime(System.currentTimeMillis() - start);
-            }
+            super.statsAdd(StatsEnum.LOAD);
             return toStoreValue(t);
         } catch (Exception e) {
             throw new LoaderCacheValueException(key, e);
@@ -158,18 +160,18 @@ public class CaffeineCache extends AbstractValueAdaptingCache {
     /**
      * 根据配置获取本地缓存对象
      *
-     * @param firstCacheSetting 一级缓存配置
+     * @param caffeineCacheSetting 一级缓存配置
      * @return {@link Cache}
      */
-    private static Cache<Object, Object> getCache(FirstCacheSetting firstCacheSetting) {
+    private static Cache<Object, Object> getCache(CaffeineCacheSetting caffeineCacheSetting) {
         // 根据配置创建Caffeine builder
         Caffeine<Object, Object> builder = Caffeine.newBuilder();
-        builder.initialCapacity(firstCacheSetting.getInitialCapacity());
-        builder.maximumSize(firstCacheSetting.getMaximumSize());
-        if (ExpireMode.WRITE.equals(firstCacheSetting.getExpireMode())) {
-            builder.expireAfterWrite(firstCacheSetting.getExpireTime(), firstCacheSetting.getTimeUnit());
-        } else if (ExpireMode.ACCESS.equals(firstCacheSetting.getExpireMode())) {
-            builder.expireAfterAccess(firstCacheSetting.getExpireTime(), firstCacheSetting.getTimeUnit());
+        builder.initialCapacity(caffeineCacheSetting.getInitialCapacity());
+        builder.maximumSize(caffeineCacheSetting.getMaximumSize());
+        if (ExpireMode.WRITE.equals(caffeineCacheSetting.getExpireMode())) {
+            builder.expireAfterWrite(caffeineCacheSetting.getExpireTime(), caffeineCacheSetting.getTimeUnit());
+        } else if (ExpireMode.ACCESS.equals(caffeineCacheSetting.getExpireMode())) {
+            builder.expireAfterAccess(caffeineCacheSetting.getExpireTime(), caffeineCacheSetting.getTimeUnit());
         }
         // 根据Caffeine builder创建 Cache 对象
         return builder.build();

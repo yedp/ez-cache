@@ -1,15 +1,15 @@
 package com.github.yedp.ez.cache.core.cache;
 
+import com.github.benmanes.caffeine.cache.stats.CacheStats;
+
 import java.util.concurrent.Callable;
 
 /**
- *
- *@author  yedp
- *@date    2021-01-30 16:47:56
- *@comment 
- *
+ * @author yedp
+ * @date 2021-01-30 16:47:56
+ * @comment
  **/
-public interface Cache {
+public interface ICache {
     /**
      * 返回缓存名称
      *
@@ -23,6 +23,15 @@ public interface Cache {
      * @return Object
      */
     Object getNativeCache();
+
+    /**
+     * 返回string类型缓存
+     *
+     * @param key 缓存key
+     * @return 缓存key对应的值
+     */
+    String get(String key);
+
 
     /**
      * 根据KEY返回缓存中对应的值，并将其返回类型转换成对应类型，如果对应key不存在返回NULL
@@ -56,10 +65,20 @@ public interface Cache {
     /**
      * 如果缓存key没有对应的值就将值put到缓存，如果有就直接返回原有的值
      *
+     * @param key   缓存key
+     * @param value 缓存key对应的值
+     * @return 因为值本身可能为NULL，或者缓存key本来就没有对应值的时候也为NULL，
+     * 所以如果返回NULL就表示已经将key-value键值对放到了缓存中
+     */
+    String putIfAbsent(String key, String value);
+
+    /**
+     * 如果缓存key没有对应的值就将值put到缓存，如果有就直接返回原有的值
+     *
      * @param key        缓存key
      * @param value      缓存key对应的值
      * @param resultType 返回值类型
-     * @param <T> T
+     * @param <T>        T
      * @return 因为值本身可能为NULL，或者缓存key本来就没有对应值的时候也为NULL，
      * 所以如果返回NULL就表示已经将key-value键值对放到了缓存中
      */
@@ -73,7 +92,7 @@ public interface Cache {
     void evict(String key);
 
     /**
-     * 清楚缓存
+     * 清除缓存
      */
     void clear();
 

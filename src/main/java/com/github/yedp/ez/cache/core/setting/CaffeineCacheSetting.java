@@ -10,7 +10,7 @@ import java.util.concurrent.TimeUnit;
  *
  * @author yuhao.wang
  */
-public class FirstCacheSetting implements Serializable {
+public class CaffeineCacheSetting implements Serializable {
 
     /**
      * 缓存初始Size
@@ -25,7 +25,7 @@ public class FirstCacheSetting implements Serializable {
     /**
      * 缓存有效时间
      */
-    private int expireTime = 0;
+    private int expireTime = 60000;
 
     /**
      * 缓存时间单位
@@ -37,7 +37,7 @@ public class FirstCacheSetting implements Serializable {
      */
     private ExpireMode expireMode = ExpireMode.WRITE;
 
-    public FirstCacheSetting() {
+    public CaffeineCacheSetting() {
     }
 
     /**
@@ -47,7 +47,7 @@ public class FirstCacheSetting implements Serializable {
      * @param timeUnit        缓存时间单位 {@link TimeUnit}
      * @param expireMode      缓存失效模式{@link ExpireMode}
      */
-    public FirstCacheSetting(int initialCapacity, int maximumSize, int expireTime, TimeUnit timeUnit, ExpireMode expireMode) {
+    public CaffeineCacheSetting(int initialCapacity, int maximumSize, int expireTime, TimeUnit timeUnit, ExpireMode expireMode) {
         this.initialCapacity = initialCapacity;
         this.maximumSize = maximumSize;
         this.expireTime = expireTime;

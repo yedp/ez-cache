@@ -1,12 +1,14 @@
 package com.github.yedp.ez.cache.core;
 
-import com.github.yedp.ez.cache.core.cache.Cache;
+import com.alibaba.fastjson.JSON;
+import com.github.yedp.ez.cache.core.cache.ICache;
 import com.github.yedp.ez.cache.core.cache.caffeine.CaffeineCache;
-import com.github.yedp.ez.cache.core.setting.FirstCacheSetting;
+import com.github.yedp.ez.cache.core.setting.CaffeineCacheSetting;
+import com.github.yedp.ez.cache.core.support.ExpireMode;
 import org.junit.Before;
 import org.junit.Test;
 
-import javax.annotation.PreDestroy;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author yedp
@@ -14,17 +16,23 @@ import javax.annotation.PreDestroy;
  * @comment
  **/
 public class CaffeineCacheTest {
-    Cache cache = null;
+    ICache cache = null;
 
     @Before
     public void before(){
-        FirstCacheSetting setting = new FirstCacheSetting();
-        cache = new CaffeineCache("test",setting,false);
+        CaffeineCacheSetting setting = new CaffeineCacheSetting();
+        setting.setExpireMode(ExpireMode.WRITE);
+        setting.setExpireTime(1000);
+        setting.setMaximumSize(100);
+        setting.setTimeUnit(TimeUnit.SECONDS);
+        cache = new CaffeineCache("test",setting,true);
     }
     @Test
     public void testPut(){
         String key = "testKey";
         String value = "testValue";
         cache.put(key,value);
+        System.out.println(cache.get(key));
+        System.out.println(JSON.toJSONString(cache));
     }
 }
