@@ -122,6 +122,7 @@ public abstract class AbstractValueAdaptingCache implements ICache, IStats {
     protected void statsAddByRs(Object object) {
         if (object == null || object instanceof NullValue) {
             statsAdd(StatsEnum.MISS);
+            return;
         }
         statsAdd(StatsEnum.HIT);
     }
@@ -130,11 +131,16 @@ public abstract class AbstractValueAdaptingCache implements ICache, IStats {
         if (!this.getStatusSwitch()) {
             return;
         }
-        cacheStats.addRequestCount(1);
-        if (StatsEnum.HIT.equals(statsEnum)) {
-            cacheStats.addHitCount(1);
-        } else if (StatsEnum.LOAD.equals(statsEnum)) {
-            cacheStats.addLoadCount(1);
+        switch (statsEnum) {
+            case HIT:
+                cacheStats.addHitCount(1);
+                cacheStats.addRequestCount(1);
+                break;
+            case MISS:
+                cacheStats.addRequestCount(1);
+                break;
+            case LOAD:
+                cacheStats.addLoadCount(1);
         }
     }
 
