@@ -21,9 +21,7 @@ import com.alibaba.fastjson.JSON;
 import com.github.yedp.ez.cache.core.stats.CacheStats;
 import com.github.yedp.ez.cache.core.stats.StatsEnum;
 import com.github.yedp.ez.cache.core.support.NullValue;
-import org.springframework.util.Assert;
-
-import java.util.Objects;
+import com.github.yedp.ez.util.StringUtils;
 import java.util.concurrent.Callable;
 
 
@@ -56,7 +54,7 @@ public abstract class AbstractValueAdaptingCache implements ICache, IStats {
      * @param name        缓存名称
      */
     protected AbstractValueAdaptingCache(boolean statsSwitch, String name) {
-        Assert.notNull(name, "缓存名称不能为NULL");
+        assert StringUtils.isNotBlank(name) : "缓存名称不能为NULL";
         this.setStatsSwitch(statsSwitch);
         this.name = name;
     }
